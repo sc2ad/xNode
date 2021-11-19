@@ -180,8 +180,8 @@ namespace XNodeEditor {
 
         private static System.Type GetType(SerializedProperty property) {
             System.Type parentType = property.serializedObject.targetObject.GetType();
-            System.Reflection.FieldInfo fi = parentType.GetFieldInfo(property.name);
-            return fi.FieldType;
+            var mi = parentType.GetMemberInfo(property.name);
+            return mi.ReflectedType;
         }
 
         /// <summary> Make a simple port field. </summary>
@@ -194,7 +194,7 @@ namespace XNodeEditor {
             if (port == null) return;
             if (options == null) options = new GUILayoutOption[] { GUILayout.MinWidth(30) };
             Vector2 position = Vector3.zero;
-            GUIContent content = label != null ? label : new GUIContent(ObjectNames.NicifyVariableName(port.fieldName));
+            GUIContent content = label != null ? label : new GUIContent(ObjectNames.NicifyVariableName(port.MemberName));
 
             // If property is an input, display a regular property field and put a port handle on the left side
             if (port.direction == XNode.NodePort.IO.Input) {
@@ -248,7 +248,7 @@ namespace XNodeEditor {
             } else if (port.direction == XNode.NodePort.IO.Output) {
                 rect = GUILayoutUtility.GetLastRect();
                 rect.width += NodeEditorWindow.current.graphEditor.GetPortStyle(port).padding.right;
-                rect.position = rect.position + new Vector2(rect.width, 0);
+                rect.position += new Vector2(rect.width, 0);
             }
 
             rect.size = new Vector2(16, 16);
@@ -297,14 +297,14 @@ namespace XNodeEditor {
         }
 
         [Obsolete("Use DynamicPortList instead")]
-        public static void InstancePortList(string fieldName, Type type, SerializedObject serializedObject, XNode.NodePort.IO io, XNode.Node.ConnectionType connectionType = XNode.Node.ConnectionType.Multiple, XNode.Node.TypeConstraint typeConstraint = XNode.Node.TypeConstraint.None, Action<ReorderableList> onCreation = null) {
-            DynamicPortList(fieldName, type, serializedObject, io, connectionType, typeConstraint, onCreation);
+        public static void InstancePortList(string memberName, Type type, SerializedObject serializedObject, XNode.NodePort.IO io, XNode.Node.ConnectionType connectionType = XNode.Node.ConnectionType.Multiple, XNode.Node.TypeConstraint typeConstraint = XNode.Node.TypeConstraint.None, Action<ReorderableList> onCreation = null) {
+            DynamicPortList(memberName, type, serializedObject, io, connectionType, typeConstraint, onCreation);
         }
         #endregion
 
         /// <summary> Is this port part of a DynamicPortList? </summary>
         public static bool IsDynamicPortListPort(XNode.NodePort port) {
-            string[] parts = port.fieldName.Split(' ');
+            string[] parts = port.MemberName.Split(' ');
             if (parts.Length != 2) return false;
             Dictionary<string, ReorderableList> cache;
             if (reorderableListCache.TryGetValue(port.node, out cache)) {
@@ -314,18 +314,18 @@ namespace XNodeEditor {
             return false;
         }
 
-        /// <summary> Draw an editable list of dynamic ports. Port names are named as "[fieldName] [index]" </summary>
-        /// <param name="fieldName">Supply a list for editable values</param>
+        /// <summary> Draw an editable list of dynamic ports. Port names are named as "[memberName] [index]" </summary>
+        /// <param name="memberName">Supply a list for editable values</param>
         /// <param name="type">Value type of added dynamic ports</param>
         /// <param name="serializedObject">The serializedObject of the node</param>
         /// <param name="connectionType">Connection type of added dynamic ports</param>
         /// <param name="onCreation">Called on the list on creation. Use this if you want to customize the created ReorderableList</param>
-        public static void DynamicPortList(string fieldName, Type type, SerializedObject serializedObject, XNode.NodePort.IO io, XNode.Node.ConnectionType connectionType = XNode.Node.ConnectionType.Multiple, XNode.Node.TypeConstraint typeConstraint = XNode.Node.TypeConstraint.None, Action<ReorderableList> onCreation = null) {
+        public static void DynamicPortList(string memberName, Type type, SerializedObject serializedObject, XNode.NodePort.IO io, XNode.Node.ConnectionType connectionType = XNode.Node.ConnectionType.Multiple, XNode.Node.TypeConstraint typeConstraint = XNode.Node.TypeConstraint.None, Action<ReorderableList> onCreation = null) {
             XNode.Node node = serializedObject.targetObject as XNode.Node;
 
             var indexedPorts = node.DynamicPorts.Select(x => {
-                string[] split = x.fieldName.Split(' ');
-                if (split != null && split.Length == 2 && split[0] == fieldName) {
+                string[] split = x.MemberName.Split(' ');
+                if (split != null && split.Length == 2 && split[0] == memberName) {
                     int i = -1;
                     if (int.TryParse(split[1], out i)) {
                         return new { index = i, port = x };
@@ -340,29 +340,29 @@ namespace XNodeEditor {
             ReorderableList list = null;
             Dictionary<string, ReorderableList> rlc;
             if (reorderableListCache.TryGetValue(serializedObject.targetObject, out rlc)) {
-                if (!rlc.TryGetValue(fieldName, out list)) list = null;
+                if (!rlc.TryGetValue(memberName, out list)) list = null;
             }
             // If a ReorderableList isn't cached for this array, do so.
             if (list == null) {
-                SerializedProperty arrayData = serializedObject.FindProperty(fieldName);
-                list = CreateReorderableList(fieldName, dynamicPorts, arrayData, type, serializedObject, io, connectionType, typeConstraint, onCreation);
-                if (reorderableListCache.TryGetValue(serializedObject.targetObject, out rlc)) rlc.Add(fieldName, list);
-                else reorderableListCache.Add(serializedObject.targetObject, new Dictionary<string, ReorderableList>() { { fieldName, list } });
+                SerializedProperty arrayData = serializedObject.FindProperty(memberName);
+                list = CreateReorderableList(memberName, dynamicPorts, arrayData, type, serializedObject, io, connectionType, typeConstraint, onCreation);
+                if (reorderableListCache.TryGetValue(serializedObject.targetObject, out rlc)) rlc.Add(memberName, list);
+                else reorderableListCache.Add(serializedObject.targetObject, new Dictionary<string, ReorderableList>() { { memberName, list } });
             }
             list.list = dynamicPorts;
             list.DoLayoutList();
 
         }
 
-        private static ReorderableList CreateReorderableList(string fieldName, List<XNode.NodePort> dynamicPorts, SerializedProperty arrayData, Type type, SerializedObject serializedObject, XNode.NodePort.IO io, XNode.Node.ConnectionType connectionType, XNode.Node.TypeConstraint typeConstraint, Action<ReorderableList> onCreation) {
+        private static ReorderableList CreateReorderableList(string memberName, List<XNode.NodePort> dynamicPorts, SerializedProperty arrayData, Type type, SerializedObject serializedObject, XNode.NodePort.IO io, XNode.Node.ConnectionType connectionType, XNode.Node.TypeConstraint typeConstraint, Action<ReorderableList> onCreation) {
             bool hasArrayData = arrayData != null && arrayData.isArray;
             XNode.Node node = serializedObject.targetObject as XNode.Node;
             ReorderableList list = new ReorderableList(dynamicPorts, null, true, true, true, true);
-            string label = arrayData != null ? arrayData.displayName : ObjectNames.NicifyVariableName(fieldName);
+            string label = arrayData != null ? arrayData.displayName : ObjectNames.NicifyVariableName(memberName);
 
             list.drawElementCallback =
                 (Rect rect, int index, bool isActive, bool isFocused) => {
-                    XNode.NodePort port = node.GetPort(fieldName + " " + index);
+                    XNode.NodePort port = node.GetPort(memberName + " " + index);
                     if (hasArrayData && arrayData.propertyType != SerializedPropertyType.String) {
                         if (arrayData.arraySize <= index) {
                             EditorGUI.LabelField(rect, "Array[" + index + "] data out of range");
@@ -370,7 +370,7 @@ namespace XNodeEditor {
                         }
                         SerializedProperty itemData = arrayData.GetArrayElementAtIndex(index);
                         EditorGUI.PropertyField(rect, itemData, true);
-                    } else EditorGUI.LabelField(rect, port != null ? port.fieldName : "");
+                    } else EditorGUI.LabelField(rect, port != null ? port.MemberName : "");
                     if (port != null) {
                         Vector2 pos = rect.position + (port.IsOutput ? new Vector2(rect.width + 6, 0) : new Vector2(-36, 0));
                         NodeEditorGUILayout.PortField(pos, port);
@@ -401,8 +401,8 @@ namespace XNodeEditor {
                     // Move up
                     if (rl.index > reorderableListIndex) {
                         for (int i = reorderableListIndex; i < rl.index; ++i) {
-                            XNode.NodePort port = node.GetPort(fieldName + " " + i);
-                            XNode.NodePort nextPort = node.GetPort(fieldName + " " + (i + 1));
+                            XNode.NodePort port = node.GetPort(memberName + " " + i);
+                            XNode.NodePort nextPort = node.GetPort(memberName + " " + (i + 1));
                             port.SwapConnections(nextPort);
 
                             // Swap cached positions to mitigate twitching
@@ -415,8 +415,8 @@ namespace XNodeEditor {
                     // Move down
                     else {
                         for (int i = reorderableListIndex; i > rl.index; --i) {
-                            XNode.NodePort port = node.GetPort(fieldName + " " + i);
-                            XNode.NodePort nextPort = node.GetPort(fieldName + " " + (i - 1));
+                            XNode.NodePort port = node.GetPort(memberName + " " + i);
+                            XNode.NodePort nextPort = node.GetPort(memberName + " " + (i - 1));
                             port.SwapConnections(nextPort);
 
                             // Swap cached positions to mitigate twitching
@@ -444,9 +444,9 @@ namespace XNodeEditor {
             list.onAddCallback =
                 (ReorderableList rl) => {
                     // Add dynamic port postfixed with an index number
-                    string newName = fieldName + " 0";
+                    string newName = memberName + " 0";
                     int i = 0;
-                    while (node.HasPort(newName)) newName = fieldName + " " + (++i);
+                    while (node.HasPort(newName)) newName = memberName + " " + (++i);
 
                     if (io == XNode.NodePort.IO.Output) node.AddDynamicOutput(type, connectionType, XNode.Node.TypeConstraint.None, newName);
                     else node.AddDynamicInput(type, connectionType, typeConstraint, newName);
@@ -461,8 +461,8 @@ namespace XNodeEditor {
                 (ReorderableList rl) => {
 
                     var indexedPorts = node.DynamicPorts.Select(x => {
-                        string[] split = x.fieldName.Split(' ');
-                        if (split != null && split.Length == 2 && split[0] == fieldName) {
+                        string[] split = x.MemberName.Split(' ');
+                        if (split != null && split.Length == 2 && split[0] == memberName) {
                             int i = -1;
                             if (int.TryParse(split[1], out i)) {
                                 return new { index = i, port = x };
@@ -491,7 +491,7 @@ namespace XNodeEditor {
                             }
                         }
                         // Remove the last dynamic port, to avoid messing up the indexing
-                        node.RemoveDynamicPort(dynamicPorts[dynamicPorts.Count() - 1].fieldName);
+                        node.RemoveDynamicPort(dynamicPorts[dynamicPorts.Count() - 1].MemberName);
                         serializedObject.Update();
                         EditorUtility.SetDirty(node);
                     }

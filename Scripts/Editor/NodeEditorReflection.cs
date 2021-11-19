@@ -55,12 +55,13 @@ namespace XNodeEditor {
         }
 
         /// <summary> Get FieldInfo of a field, including those that are private and/or inherited </summary>
-        public static FieldInfo GetFieldInfo(this Type type, string fieldName) {
+        public static MemberInfo GetMemberInfo(this Type type, string memberName) {
             // If we can't find field in the first run, it's probably a private field in a base class.
-            FieldInfo field = type.GetField(fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            var member = type.GetMember(memberName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).FirstOrDefault();
             // Search base classes for private fields only. Public fields are found above
-            while (field == null && (type = type.BaseType) != typeof(XNode.Node)) field = type.GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
-            return field;
+            while (member == null && (type = type.BaseType) != typeof(XNode.Node))
+                member = type.GetField(memberName, BindingFlags.NonPublic | BindingFlags.Instance);
+            return member;
         }
 
         /// <summary> Get all classes deriving from baseType via reflection </summary>

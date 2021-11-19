@@ -26,7 +26,7 @@ namespace XNode {
             List<NodePort> typePortCache;
             if (portDataCache.TryGetValue(nodeType, out typePortCache)) {
                 for (int i = 0; i < typePortCache.Count; i++) {
-                    staticPorts.Add(typePortCache[i].fieldName, portDataCache[nodeType][i]);
+                    staticPorts.Add(typePortCache[i].MemberName, portDataCache[nodeType][i]);
                 }
             }
 
@@ -36,13 +36,13 @@ namespace XNode {
             foreach (NodePort port in ports.Values.ToList()) {
                 // If port still exists, check it it has been changed
                 NodePort staticPort;
-                if (staticPorts.TryGetValue(port.fieldName, out staticPort)) {
+                if (staticPorts.TryGetValue(port.MemberName, out staticPort)) {
                     // If port exists but with wrong settings, remove it. Re-add it later.
                     if (port.IsDynamic || port.direction != staticPort.direction || port.connectionType != staticPort.connectionType || port.typeConstraint != staticPort.typeConstraint) {
                         // If port is not dynamic and direction hasn't changed, add it to the list so we can try reconnecting the ports connections.
-                        if (!port.IsDynamic && port.direction == staticPort.direction) removedPorts.Add(port.fieldName, port.GetConnections());
+                        if (!port.IsDynamic && port.direction == staticPort.direction) removedPorts.Add(port.MemberName, port.GetConnections());
                         port.ClearConnections();
-                        ports.Remove(port.fieldName);
+                        ports.Remove(port.MemberName);
                     } else port.ValueType = staticPort.ValueType;
                 }
                 // If port doesn't exist anymore, remove it
@@ -50,10 +50,10 @@ namespace XNode {
                     //See if the field is tagged with FormerlySerializedAs, if so add the port with its new field name to removedPorts
                     // so it can be reconnected in missing ports stage.
                     string newName = null;
-                    if (formerlySerializedAs != null && formerlySerializedAs.TryGetValue(port.fieldName, out newName)) removedPorts.Add(newName, port.GetConnections());
+                    if (formerlySerializedAs != null && formerlySerializedAs.TryGetValue(port.MemberName, out newName)) removedPorts.Add(newName, port.GetConnections());
 
                     port.ClearConnections();
-                    ports.Remove(port.fieldName);
+                    ports.Remove(port.MemberName);
                 }
                 // If the port is dynamic and is managed by a dynamic port list, flag it for reference updates
                 else if (IsDynamicListPort(port)) {
@@ -62,18 +62,18 @@ namespace XNode {
             }
             // Add missing ports
             foreach (NodePort staticPort in staticPorts.Values) {
-                if (!ports.ContainsKey(staticPort.fieldName)) {
+                if (!ports.ContainsKey(staticPort.MemberName)) {
                     NodePort port = new NodePort(staticPort, node);
                     //If we just removed the port, try re-adding the connections
                     List<NodePort> reconnectConnections;
-                    if (removedPorts.TryGetValue(staticPort.fieldName, out reconnectConnections)) {
+                    if (removedPorts.TryGetValue(staticPort.MemberName, out reconnectConnections)) {
                         for (int i = 0; i < reconnectConnections.Count; i++) {
                             NodePort connection = reconnectConnections[i];
                             if (connection == null) continue;
                             if (port.CanConnectTo(connection)) port.Connect(connection);
                         }
                     }
-                    ports.Add(staticPort.fieldName, port);
+                    ports.Add(staticPort.MemberName, port);
                 }
             }
             
@@ -81,7 +81,7 @@ namespace XNode {
             foreach (NodePort listPort in dynamicListPorts) {
                 // At this point we know that ports here are dynamic list ports
                 // which have passed name/"backing port" checks, ergo we can proceed more safely.
-                string backingPortName = listPort.fieldName.Split(' ')[0];
+                string backingPortName = listPort.MemberName.Split(' ')[0];
                 NodePort backingPort = staticPorts[backingPortName];
                 
                 // Update port constraints. Creating a new port instead will break the editor, mandating the need for setters.
@@ -112,7 +112,7 @@ namespace XNode {
             // Ports flagged as "dynamicPortList = true" end up having a "backing port" and a name with an index, but we have
             // no guarantee that a dynamic port called "output 0" is an element in a list backed by a static "output" port.
             // Thus, we need to check for attributes... (but at least we don't need to look at all fields this time)
-            string[] fieldNameParts = port.fieldName.Split(' ');
+            string[] fieldNameParts = port.MemberName.Split(' ');
             if (fieldNameParts.Length != 2) return false;
             
             FieldInfo backingPortInfo = port.node.GetType().GetField(fieldNameParts[0]);

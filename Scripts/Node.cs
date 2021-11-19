@@ -156,25 +156,25 @@ namespace XNode {
         /// <summary> Add a dynamic, serialized port to this node. </summary>
         /// <seealso cref="AddDynamicInput"/>
         /// <seealso cref="AddDynamicOutput"/>
-        private NodePort AddDynamicPort(Type type, NodePort.IO direction, Node.ConnectionType connectionType = Node.ConnectionType.Multiple, Node.TypeConstraint typeConstraint = TypeConstraint.None, string fieldName = null) {
-            if (fieldName == null) {
-                fieldName = "dynamicInput_0";
+        private NodePort AddDynamicPort(Type type, NodePort.IO direction, Node.ConnectionType connectionType = Node.ConnectionType.Multiple, Node.TypeConstraint typeConstraint = TypeConstraint.None, string memberName = null) {
+            if (memberName == null) {
+                memberName = "dynamicInput_0";
                 int i = 0;
-                while (HasPort(fieldName)) fieldName = "dynamicInput_" + (++i);
-            } else if (HasPort(fieldName)) {
-                Debug.LogWarning("Port '" + fieldName + "' already exists in " + name, this);
-                return ports[fieldName];
+                while (HasPort(memberName)) memberName = "dynamicInput_" + (++i);
+            } else if (HasPort(memberName)) {
+                Debug.LogWarning("Port '" + memberName + "' already exists in " + name, this);
+                return ports[memberName];
             }
-            NodePort port = new NodePort(fieldName, type, direction, connectionType, typeConstraint, this);
-            ports.Add(fieldName, port);
+            NodePort port = new NodePort(memberName, type, direction, connectionType, typeConstraint, this);
+            ports.Add(memberName, port);
             return port;
         }
 
         /// <summary> Remove an dynamic port from the node </summary>
-        public void RemoveDynamicPort(string fieldName) {
-            NodePort dynamicPort = GetPort(fieldName);
-            if (dynamicPort == null) throw new ArgumentException("port " + fieldName + " doesn't exist");
-            RemoveDynamicPort(GetPort(fieldName));
+        public void RemoveDynamicPort(string memberName) {
+            NodePort dynamicPort = GetPort(memberName);
+            if (dynamicPort == null) throw new ArgumentException("port " + memberName + " doesn't exist");
+            RemoveDynamicPort(GetPort(memberName));
         }
 
         /// <summary> Remove an dynamic port from the node </summary>
@@ -182,7 +182,7 @@ namespace XNode {
             if (port == null) throw new ArgumentNullException("port");
             else if (port.IsStatic) throw new ArgumentException("cannot remove static port");
             port.ClearConnections();
-            ports.Remove(port.fieldName);
+            ports.Remove(port.MemberName);
         }
 
         /// <summary> Removes all dynamic ports from the node </summary>
@@ -197,28 +197,28 @@ namespace XNode {
 
 #region Ports
         /// <summary> Returns output port which matches fieldName </summary>
-        public NodePort GetOutputPort(string fieldName) {
-            NodePort port = GetPort(fieldName);
+        public NodePort GetOutputPort(string memberName) {
+            NodePort port = GetPort(memberName);
             if (port == null || port.direction != NodePort.IO.Output) return null;
             else return port;
         }
 
         /// <summary> Returns input port which matches fieldName </summary>
-        public NodePort GetInputPort(string fieldName) {
-            NodePort port = GetPort(fieldName);
+        public NodePort GetInputPort(string memberName) {
+            NodePort port = GetPort(memberName);
             if (port == null || port.direction != NodePort.IO.Input) return null;
             else return port;
         }
 
         /// <summary> Returns port which matches fieldName </summary>
-        public NodePort GetPort(string fieldName) {
+        public NodePort GetPort(string memberName) {
             NodePort port;
-            if (ports.TryGetValue(fieldName, out port)) return port;
+            if (ports.TryGetValue(memberName, out port)) return port;
             else return null;
         }
 
-        public bool HasPort(string fieldName) {
-            return ports.ContainsKey(fieldName);
+        public bool HasPort(string memberName) {
+            return ports.ContainsKey(memberName);
         }
 #endregion
 

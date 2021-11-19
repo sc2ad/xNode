@@ -37,16 +37,16 @@ namespace XNodeEditor {
             return false;
         }
 
-        public static bool GetAttrib<T>(Type classType, string fieldName, out T attribOut) where T : Attribute {
+        public static bool GetAttrib<T>(Type classType, string memberName, out T attribOut) where T : Attribute {
             // If we can't find field in the first run, it's probably a private field in a base class.
-            FieldInfo field = classType.GetFieldInfo(fieldName);
+            var member = classType.GetMemberInfo(memberName);
             // This shouldn't happen. Ever.
-            if (field == null) {
-                Debug.LogWarning("Field " + fieldName + " couldnt be found");
+            if (member == null) {
+                Debug.LogWarning("Member " + memberName + " couldnt be found");
                 attribOut = null;
                 return false;
             }
-            object[] attribs = field.GetCustomAttributes(typeof(T), true);
+            object[] attribs = member.GetCustomAttributes(typeof(T), true);
             return GetAttrib(attribs, out attribOut);
         }
 
@@ -59,22 +59,22 @@ namespace XNodeEditor {
             return false;
         }
 
-        public static bool GetCachedAttrib<T>(Type classType, string fieldName, out T attribOut) where T : Attribute {
-            Dictionary<string, Dictionary<Type, Attribute>> typeFields;
-            if (!typeAttributes.TryGetValue(classType, out typeFields)) {
-                typeFields = new Dictionary<string, Dictionary<Type, Attribute>>();
-                typeAttributes.Add(classType, typeFields);
+        public static bool GetCachedAttrib<T>(Type classType, string memberName, out T attribOut) where T : Attribute {
+            Dictionary<string, Dictionary<Type, Attribute>> typeMembers;
+            if (!typeAttributes.TryGetValue(classType, out typeMembers)) {
+                typeMembers = new Dictionary<string, Dictionary<Type, Attribute>>();
+                typeAttributes.Add(classType, typeMembers);
             }
 
             Dictionary<Type, Attribute> typeTypes;
-            if (!typeFields.TryGetValue(fieldName, out typeTypes)) {
+            if (!typeMembers.TryGetValue(memberName, out typeTypes)) {
                 typeTypes = new Dictionary<Type, Attribute>();
-                typeFields.Add(fieldName, typeTypes);
+                typeMembers.Add(memberName, typeTypes);
             }
 
             Attribute attr;
             if (!typeTypes.TryGetValue(typeof(T), out attr)) {
-                if (GetAttrib<T>(classType, fieldName, out attribOut)) {
+                if (GetAttrib<T>(classType, memberName, out attribOut)) {
                     typeTypes.Add(typeof(T), attribOut);
                     return true;
                 } else typeTypes.Add(typeof(T), null);
@@ -89,19 +89,19 @@ namespace XNodeEditor {
             return true;
         }
 
-        public static List<PropertyAttribute> GetCachedPropertyAttribs(Type classType, string fieldName) {
-            Dictionary<string, List<PropertyAttribute>> typeFields;
-            if (!typeOrderedPropertyAttributes.TryGetValue(classType, out typeFields)) {
-                typeFields = new Dictionary<string, List<PropertyAttribute>>();
-                typeOrderedPropertyAttributes.Add(classType, typeFields);
+        public static List<PropertyAttribute> GetCachedPropertyAttribs(Type classType, string memberName) {
+            Dictionary<string, List<PropertyAttribute>> typeMembers;
+            if (!typeOrderedPropertyAttributes.TryGetValue(classType, out typeMembers)) {
+                typeMembers = new Dictionary<string, List<PropertyAttribute>>();
+                typeOrderedPropertyAttributes.Add(classType, typeMembers);
             }
 
             List<PropertyAttribute> typeAttributes;
-            if (!typeFields.TryGetValue(fieldName, out typeAttributes)) {
-                FieldInfo field = classType.GetFieldInfo(fieldName);
-                object[] attribs = field.GetCustomAttributes(typeof(PropertyAttribute), true);
+            if (!typeMembers.TryGetValue(memberName, out typeAttributes)) {
+                var member = classType.GetMemberInfo(memberName);
+                object[] attribs = member.GetCustomAttributes(typeof(PropertyAttribute), true);
                 typeAttributes = attribs.Cast<PropertyAttribute>().Reverse().ToList(); //Unity draws them in reverse
-                typeFields.Add(fieldName, typeAttributes);
+                typeMembers.Add(memberName, typeAttributes);
             }
 
             return typeAttributes;

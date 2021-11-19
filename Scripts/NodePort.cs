@@ -37,7 +37,7 @@ namespace XNode {
         public bool IsInput { get { return direction == IO.Input; } }
         public bool IsOutput { get { return direction == IO.Output; } }
 
-        public string fieldName { get { return _fieldName; } }
+        public string MemberName => _memberName;
         public Node node { get { return _node; } }
         public bool IsDynamic { get { return _dynamic; } }
         public bool IsStatic { get { return !_dynamic; } }
@@ -53,7 +53,8 @@ namespace XNode {
         }
         private Type valueType;
 
-        [SerializeField] private string _fieldName;
+        [SerializeField] private string _memberName;
+        //[SerializeField] private bool _isField;
         [SerializeField] private Node _node;
         [SerializeField] private string _typeQualifiedName;
         [SerializeField] private List<PortConnection> connections = new List<PortConnection>();
@@ -64,7 +65,8 @@ namespace XNode {
 
         /// <summary> Construct a static targetless nodeport. Used as a template. </summary>
         public NodePort(MemberInfo memberInfo) {
-            _fieldName = memberInfo.Name;
+            _memberName = memberInfo.Name;
+            //_isField = memberInfo is FieldInfo;
             ValueType = memberInfo.ReflectedType;
             _dynamic = false;
             var attribs = memberInfo.GetCustomAttributes(false);
@@ -83,7 +85,8 @@ namespace XNode {
 
         /// <summary> Copy a nodePort but assign it to another node. </summary>
         public NodePort(NodePort nodePort, Node node) {
-            _fieldName = nodePort._fieldName;
+            _memberName = nodePort._memberName;
+            //_isField = nodePort.IsField;
             ValueType = nodePort.valueType;
             _direction = nodePort.direction;
             _dynamic = nodePort._dynamic;
@@ -93,9 +96,10 @@ namespace XNode {
         }
 
         /// <summary> Construct a dynamic port. Dynamic ports are not forgotten on reimport, and is ideal for runtime-created ports. </summary>
-        public NodePort(string fieldName, Type type, IO direction, Node.ConnectionType connectionType, Node.TypeConstraint typeConstraint, Node node) {
-            _fieldName = fieldName;
-            this.ValueType = type;
+        public NodePort(string mName, Type type, IO direction, Node.ConnectionType connectionType, Node.TypeConstraint typeConstraint, Node node) {
+            _memberName = mName;
+            //_isField = isField;
+            ValueType = type;
             _direction = direction;
             _node = node;
             _dynamic = true;
@@ -403,7 +407,7 @@ namespace XNode {
             public PortConnection(NodePort port) {
                 this.port = port;
                 node = port.node;
-                fieldName = port.fieldName;
+                fieldName = port.MemberName;
             }
 
             /// <summary> Returns the port that this <see cref="PortConnection"/> points to </summary>

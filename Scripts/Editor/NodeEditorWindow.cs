@@ -30,7 +30,7 @@ namespace XNodeEditor {
 
             public NodePortReference(XNode.NodePort nodePort) {
                 _node = nodePort.node;
-                _name = nodePort.fieldName;
+                _name = nodePort.MemberName;
             }
 
             public XNode.NodePort GetNodePort() {
