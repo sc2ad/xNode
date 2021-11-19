@@ -63,11 +63,11 @@ namespace XNode {
         [SerializeField] private bool _dynamic;
 
         /// <summary> Construct a static targetless nodeport. Used as a template. </summary>
-        public NodePort(FieldInfo fieldInfo) {
-            _fieldName = fieldInfo.Name;
-            ValueType = fieldInfo.FieldType;
+        public NodePort(MemberInfo memberInfo) {
+            _fieldName = memberInfo.Name;
+            ValueType = memberInfo.ReflectedType;
             _dynamic = false;
-            var attribs = fieldInfo.GetCustomAttributes(false);
+            var attribs = memberInfo.GetCustomAttributes(false);
             for (int i = 0; i < attribs.Length; i++) {
                 if (attribs[i] is Node.InputAttribute) {
                     _direction = IO.Input;

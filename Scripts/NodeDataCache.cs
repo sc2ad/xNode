@@ -160,7 +160,7 @@ namespace XNode {
         }
 
         public static List<FieldInfo> GetNodeFields(System.Type nodeType) {
-            List<System.Reflection.FieldInfo> fieldInfo = new List<System.Reflection.FieldInfo>(nodeType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance));
+            var fieldInfo = new List<FieldInfo>(nodeType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance));
 
             // GetFields doesnt return inherited private fields, so walk through base types and pick those up
             System.Type tempType = nodeType;
@@ -177,33 +177,71 @@ namespace XNode {
             return fieldInfo;
         }
 
-        private static void CachePorts(System.Type nodeType) {
-            List<System.Reflection.FieldInfo> fieldInfo = GetNodeFields(nodeType);
+        public static List<PropertyInfo> GetNodeProps(System.Type nodeType)
+        {
+            var props = new List<PropertyInfo>(nodeType.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance));
 
-            for (int i = 0; i < fieldInfo.Count; i++) {
-
-                //Get InputAttribute and OutputAttribute
-                object[] attribs = fieldInfo[i].GetCustomAttributes(true);
-                Node.InputAttribute inputAttrib = attribs.FirstOrDefault(x => x is Node.InputAttribute) as Node.InputAttribute;
-                Node.OutputAttribute outputAttrib = attribs.FirstOrDefault(x => x is Node.OutputAttribute) as Node.OutputAttribute;
-                UnityEngine.Serialization.FormerlySerializedAsAttribute formerlySerializedAsAttribute = attribs.FirstOrDefault(x => x is UnityEngine.Serialization.FormerlySerializedAsAttribute) as UnityEngine.Serialization.FormerlySerializedAsAttribute;
-
-                if (inputAttrib == null && outputAttrib == null) continue;
-
-                if (inputAttrib != null && outputAttrib != null) Debug.LogError("Field " + fieldInfo[i].Name + " of type " + nodeType.FullName + " cannot be both input and output.");
-                else {
-                    if (!portDataCache.ContainsKey(nodeType)) portDataCache.Add(nodeType, new List<NodePort>());
-                    portDataCache[nodeType].Add(new NodePort(fieldInfo[i]));
-                }
-
-                if(formerlySerializedAsAttribute != null) {
-                    if (formerlySerializedAsCache == null) formerlySerializedAsCache = new Dictionary<System.Type, Dictionary<string, string>>();
-                    if (!formerlySerializedAsCache.ContainsKey(nodeType)) formerlySerializedAsCache.Add(nodeType, new Dictionary<string, string>());
-                    
-                    if (formerlySerializedAsCache[nodeType].ContainsKey(formerlySerializedAsAttribute.oldName)) Debug.LogError("Another FormerlySerializedAs with value '" + formerlySerializedAsAttribute.oldName + "' already exist on this node.");
-                    else formerlySerializedAsCache[nodeType].Add(formerlySerializedAsAttribute.oldName, fieldInfo[i].Name);
+            // GetFields doesnt return inherited private fields, so walk through base types and pick those up
+            System.Type tempType = nodeType;
+            while ((tempType = tempType.BaseType) != typeof(Node))
+            {
+                var parentProps = tempType.GetProperties(BindingFlags.NonPublic | BindingFlags.Instance);
+                for (int i = 0; i < parentProps.Length; i++)
+                {
+                    // Ensure that we do not already have a member with this type and name
+                    var parentProp = parentProps[i];
+                    if (props.TrueForAll(x => x.Name != parentProp.Name))
+                    {
+                        props.Add(parentProp);
+                    }
                 }
             }
+            return props;
+        }
+
+        private static void CachePorts<T>(System.Type nodeType, List<T> members) where T : MemberInfo
+        {
+            foreach (var member in members)
+            {
+                var attrs = member.GetCustomAttributes(true);
+                var inputAttribute = attrs.FirstOrDefault(x => x is Node.InputAttribute) as Node.InputAttribute;
+                var outputAttribute = attrs.FirstOrDefault(y => y is Node.OutputAttribute) as Node.OutputAttribute;
+                var formerlySerializedAsAttribute = attrs.FirstOrDefault(x => x is UnityEngine.Serialization.FormerlySerializedAsAttribute) as UnityEngine.Serialization.FormerlySerializedAsAttribute;
+                if (inputAttribute == null && outputAttribute == null)
+                    continue;
+                if (inputAttribute != null && outputAttribute != null)
+                    Debug.LogError($"Member {member.Name} of type {nodeType.FullName} cannot be both input and output.");
+                else
+                {
+                    if (portDataCache.TryGetValue(nodeType, out var portData))
+                    {
+                        portData.Add(new NodePort(member));
+                    }
+                    else
+                    {
+                        portDataCache.Add(nodeType, new List<NodePort> { new NodePort(member) });
+                    }
+                }
+
+                if (formerlySerializedAsAttribute != null)
+                {
+                    if (formerlySerializedAsCache == null)
+                        formerlySerializedAsCache = new Dictionary<System.Type, Dictionary<string, string>>();
+                    if (formerlySerializedAsCache.TryGetValue(nodeType, out var cacheDict))
+                    {
+                        Debug.LogError($"Another {nameof(UnityEngine.Serialization.FormerlySerializedAsAttribute)} with value '{formerlySerializedAsAttribute.oldName}' already exist on this node.");
+                    }
+                    else
+                    {
+                        formerlySerializedAsCache.Add(nodeType, new Dictionary<string, string>{ { formerlySerializedAsAttribute.oldName, member.Name} });
+                    }
+                }
+            }
+        }
+
+        private static void CachePorts(System.Type nodeType) {
+            CachePorts(nodeType, GetNodeFields(nodeType));
+            CachePorts(nodeType, GetNodeProps(nodeType));
         }
 
         [System.Serializable]

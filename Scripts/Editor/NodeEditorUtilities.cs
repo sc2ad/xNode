@@ -149,6 +149,17 @@ namespace XNodeEditor {
                     }
                 }
             }
+            foreach (PropertyInfo p in XNode.NodeDataCache.GetNodeProps(nodeType))
+            {
+                var portAttribute = p.GetCustomAttributes(findType, false).FirstOrDefault();
+                if (portAttribute != null)
+                {
+                    if (IsCastableTo(p.PropertyType, compatibleType))
+                    {
+                        return true;
+                    }
+                }
+            }
 
             return false;
         }
